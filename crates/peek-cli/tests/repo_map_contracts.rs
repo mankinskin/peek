@@ -4,7 +4,7 @@ use std::{
 };
 
 use tempfile::tempdir;
-use viewer_api::query::JqFilter;
+use memory_kernel::query::JqFilter;
 
 fn write_file(
     path: &std::path::Path,
