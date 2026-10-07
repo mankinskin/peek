@@ -1,34 +1,15 @@
 use std::path::PathBuf;
 
-use peek_api::{
-    InspectMode,
-    InspectRequest,
-    PeekError,
-    PeekRequest,
-    execute,
-};
+use peek_api::{InspectMode, InspectRequest, PeekError, PeekRequest, execute};
 use rmcp::{
-    ErrorData as McpError,
-    ServerHandler,
-    ServiceExt,
-    handler::server::{
-        tool::ToolRouter,
-        wrapper::Parameters,
-    },
+    ErrorData as McpError, ServerHandler, ServiceExt,
+    handler::server::{tool::ToolRouter, wrapper::Parameters},
     model::*,
-    schemars::{
-        self,
-        JsonSchema,
-    },
-    tool,
-    tool_handler,
-    tool_router,
+    schemars::{self, JsonSchema},
+    tool, tool_handler, tool_router,
     transport::stdio,
 };
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct PeekReadInput {
@@ -71,19 +52,15 @@ impl PeekServer {
         }
     }
 
-    fn json_result<T: Serialize>(
-        value: &T
-    ) -> Result<CallToolResult, McpError> {
-        let text = serde_json::to_string(value).map_err(|err| {
-            McpError::internal_error(format!("serialization: {err}"), None)
-        })?;
+    fn json_result<T: Serialize>(value: &T) -> Result<CallToolResult, McpError> {
+        let text = serde_json::to_string(value)
+            .map_err(|err| McpError::internal_error(format!("serialization: {err}"), None))?;
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
     fn peek_err(err: PeekError) -> McpError {
         match err {
-            PeekError::RepoMapEncode(message) =>
-                McpError::internal_error(message, None),
+            PeekError::RepoMapEncode(message) => McpError::internal_error(message, None),
             other => McpError::invalid_params(other.to_string(), None),
         }
     }
@@ -184,8 +161,7 @@ impl ServerHandler for PeekServer {
     }
 }
 
-pub async fn run_mcp_server()
--> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run_mcp_server() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let server = PeekServer::new();
 
     tracing::info!("Starting peek-mcp server on stdio");
@@ -206,10 +182,7 @@ mod tests {
 
     use super::*;
 
-    fn write_file(
-        path: &std::path::Path,
-        content: &str,
-    ) {
+    fn write_file(path: &std::path::Path, content: &str) {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).expect("create parent dirs");
         }

@@ -31,14 +31,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use peek_api::{
-    InspectMode,
-    InspectRequest,
-    PeekError,
-    PeekRequest,
-    execute,
-    write_output,
-};
+use peek_api::{InspectMode, InspectRequest, PeekError, PeekRequest, execute, write_output};
 
 /// peek — token-bounded file inspection.
 ///
@@ -244,8 +237,7 @@ fn validate_repo_map(args: &Args) -> Result<(), PeekError> {
         || args.all
     {
         return Err(PeekError::InvalidRequest(
-            "--repo-map cannot be combined with file inspection flags"
-                .to_string(),
+            "--repo-map cannot be combined with file inspection flags".to_string(),
         ));
     }
     Ok(())
@@ -264,8 +256,7 @@ fn has_bounded_inspection_flags(args: &Args) -> bool {
 fn validate_inspection(args: &Args) -> Result<(), PeekError> {
     if args.all && has_bounded_inspection_flags(args) {
         return Err(PeekError::InvalidRequest(
-            "--all cannot be combined with bounded inspection flags"
-                .to_string(),
+            "--all cannot be combined with bounded inspection flags".to_string(),
         ));
     }
 
