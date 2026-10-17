@@ -1,0 +1,45 @@
+[package]
+name = "peek"
+version = "0.1.0"
+edition = "2024"
+description = "Token-bounded inspection domain with CLI and MCP transports"
+
+[lib]
+name = "peek"
+path = "src/lib.rs"
+
+[features]
+default = []
+peek = ["dep:clap"]
+peek-mcp = [
+    "dep:peek-mcp",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+]
+
+[[bin]]
+name = "peek"
+path = "crates/peek-cli/src/main.rs"
+required-features = ["peek"]
+
+[[bin]]
+name = "peek-mcp"
+path = "crates/peek-mcp/src/main.rs"
+required-features = ["peek-mcp"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"], optional = true }
+peek-api = { path = "crates/peek-api" }
+peek-mcp = { path = "crates/peek-mcp", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+
+[workspace]
+members = [
+    "crates/peek-api",
+    "crates/peek-cli",
+    "crates/peek-mcp",
+]
+resolver = "3"
