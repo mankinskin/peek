@@ -1,0 +1,26 @@
+[package]
+name = "compact-terminal-mcp"
+version = "0.1.0"
+edition = "2024"
+description = "MCP server exposing a compact terminal tool that truncates long output and spills to a transient file for bounded follow-up inspection"
+
+[[bin]]
+name = "compact-terminal-mcp"
+path = "src/main.rs"
+
+[lib]
+name = "compact_terminal_mcp"
+path = "src/lib.rs"
+
+[dependencies]
+compact-terminal-api = { path = "../compact-terminal-api" }
+rmcp = { version = "0.14", features = ["server", "transport-io"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"

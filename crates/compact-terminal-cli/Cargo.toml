@@ -1,0 +1,19 @@
+[package]
+name = "compact-terminal-cli"
+version = "0.1.0"
+edition = "2024"
+description = "Token-bounded terminal output CLI — defaults to inline-limited execution instead of unbounded stdout"
+
+[[bin]]
+name = "compact-terminal"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+compact-terminal-api = { path = "../compact-terminal-api" }
+serde_json = "1"
+
+[dev-dependencies]
+assert_cmd = "2"
+tempfile = "3"
+serde_json = "1"

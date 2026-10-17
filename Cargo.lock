@@ -389,6 +389,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "compact-terminal-api"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
+name = "compact-terminal-cli"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "clap",
+ "compact-terminal-api",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "compact-terminal-mcp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "compact-terminal-api",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "compact_str"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1690,8 +1727,11 @@ name = "peek"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "compact-terminal-api",
+ "compact-terminal-mcp",
  "peek-api",
  "peek-mcp",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
