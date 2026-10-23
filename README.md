@@ -14,3 +14,11 @@ Command specifics and examples are documented in
 cargo build -p peek-cli
 ./target/debug/peek path/to/file.rs --start 42 --end 80
 ```
+
+## Windows compact-terminal shells
+
+On Windows, compact-terminal continues to execute commands through `sh -c`.
+Its child shell puts its own POSIX `/usr/bin` first in `PATH`, so `bash`
+resolves from the same shell distribution rather than a Windows launcher that
+may appear earlier in the inherited PATH. This is child-only: it does not
+change the default shell or global PATH, and does not install or configure WSL.

@@ -1,5 +1,12 @@
 //! Integration tests for compact-terminal-api.
 
+#[cfg(windows)]
+use std::{
+    env,
+    fs,
+    process::Command,
+};
+
 use compact_terminal_api::{
     PollProcessRequest,
     ReadSpillRequest,
@@ -45,6 +52,49 @@ fn test_inline_short_output() {
         },
         _ => panic!("expected inline result"),
     }
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_shell_prefers_its_usr_bin_bash_over_inherited_path() {
+    const CHILD_MARKER: &str = "COMPACT_TERMINAL_PATH_SHADOW_TEST";
+    if env::var_os(CHILD_MARKER).is_some() {
+        let result = execute(&base_request(
+            r#"test "$(command -v bash)" = /usr/bin/bash"#,
+        ));
+        assert!(matches!(
+            result.expect("execution failed"),
+            RunResult::Inline { exit_code: 0, .. }
+        ));
+        return;
+    }
+
+    let fixture = tempdir().expect("failed to create fixture directory");
+    let shadow_dir = fixture.path().join("shadow");
+    fs::create_dir(&shadow_dir).expect("failed to create shadow directory");
+    let comspec = env::var_os("COMSPEC").expect("COMSPEC must be set on Windows");
+    fs::copy(comspec, shadow_dir.join("bash.exe"))
+        .expect("failed to create shadow bash fixture");
+
+    let original_path = env::var_os("PATH");
+    let shadowed_path = match &original_path {
+        Some(path) => format!("{};{}", shadow_dir.display(), path.to_string_lossy()),
+        None => shadow_dir.display().to_string(),
+    };
+    // Run the collision in a separate test process so concurrent tests never
+    // observe the fixture PATH.
+    let output = Command::new(env::current_exe().expect("failed to find test binary"))
+        .arg("windows_shell_prefers_its_usr_bin_bash_over_inherited_path")
+        .arg("--exact")
+        .env(CHILD_MARKER, "1")
+        .env("PATH", shadowed_path)
+        .output()
+        .expect("failed to run PATH-shadow test child");
+    assert!(
+        output.status.success(),
+        "PATH-shadow test child failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -392,4 +442,3 @@ fn poll_until_timed_out(handle_id: &str) -> String {
     }
     panic!("process did not time out within the polling budget");
 }
-

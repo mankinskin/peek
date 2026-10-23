@@ -93,7 +93,10 @@ pub fn execute(
     #[cfg(windows)]
     {
         cmd.arg("-c")
-            .arg("printf '%s' \"$$\" > \"$COMPACT_TERMINAL_PID_FILE\"; eval \"$1\"")
+            .arg(
+                "PATH=/usr/bin:$PATH; export PATH; \
+                 printf '%s' \"$$\" > \"$COMPACT_TERMINAL_PID_FILE\"; eval \"$1\""
+            )
             .arg("sh")
             .arg(&request.command)
             .env("COMPACT_TERMINAL_PID_FILE", &pid_file);
