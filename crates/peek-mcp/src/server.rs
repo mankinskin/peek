@@ -11,32 +11,60 @@ use rmcp::{
 };
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+
+    #[test]
+    fn advertised_peek_contracts_expose_line_bounds_and_regex_semantics() {
+        let tools = PeekServer::tool_router().list_all();
+        assert_eq!(tools.len(), 4);
+        for tool in &tools {
+            let value = serde_json::to_value(tool).unwrap();
+            assert!(value["inputSchema"]["properties"]["path"]["description"].as_str().is_some());
+        }
+        let read = tools.iter().find(|tool| tool.name == "peek_read").unwrap();
+        assert!(read.description.as_deref().unwrap().contains("omitted/zero errors"));
+        let grep = tools.iter().find(|tool| tool.name == "peek_grep").unwrap();
+        assert!(grep.description.as_deref().unwrap().contains("case-sensitive Rust regex"));
+    }
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct PeekReadInput {
+    /// File path, absolute or relative to server cwd.
     pub path: String,
+    /// Inclusive 1-based first line; omitted/default 0 is rejected.
     #[serde(default)]
     pub start: usize,
+    /// Inclusive last line; takes precedence over window.
     #[serde(default)]
     pub end: Option<usize>,
+    /// Line count from start when end is absent; omit both for 40 lines.
     #[serde(default)]
     pub window: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct PeekGrepInput {
+    /// File path, absolute or relative to server cwd.
     pub path: String,
+    /// Case-sensitive Rust regex matched per line.
     pub pattern: String,
+    /// Centered window around first match; omit for all matching lines, zero for one line.
     #[serde(default)]
     pub window: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct PeekCountInput {
+    /// File path, absolute or relative to server cwd.
     pub path: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct PeekSkeletonInput {
+    /// File or directory path, absolute or relative to server cwd.
     pub path: String,
 }
 
@@ -81,7 +109,7 @@ impl Default for PeekServer {
 impl PeekServer {
     #[tool(
         name = "peek_read",
-        description = "Read a bounded line window from a file using shared peek-api validation and formatting."
+        description = "Read a file using 1-based inclusive start (required in practice; omitted/zero errors). end is inclusive and overrides window; if both end/window omitted, reads 40 lines. Path is absolute or relative to server cwd; bounded output, no writes."
     )]
     pub async fn peek_read(
         &self,
@@ -99,7 +127,7 @@ impl PeekServer {
 
     #[tool(
         name = "peek_grep",
-        description = "Search a file with a regex pattern and optionally return a bounded context window."
+        description = "Read-only line search using case-sensitive Rust regex. Without window returns matching lines; window returns a centered window around the first match instead (zero gives one line). Path is absolute or server-cwd-relative."
     )]
     pub async fn peek_grep(
         &self,
@@ -116,7 +144,7 @@ impl PeekServer {
 
     #[tool(
         name = "peek_count",
-        description = "Count total lines in a file before choosing bounded read coordinates."
+        description = "Read-only file line count; path is absolute or relative to server cwd."
     )]
     pub async fn peek_count(
         &self,
@@ -130,7 +158,7 @@ impl PeekServer {
 
     #[tool(
         name = "peek_skeleton",
-        description = "Render a structural skeleton for a file or directory using peek-api."
+        description = "Read-only structural outline: Rust/Python files get structural extraction, other files indentation outlines. Directories return a recursive tree of structural/configuration files, not a full source-file inventory. Path is absolute or server-cwd-relative."
     )]
     pub async fn peek_skeleton(
         &self,

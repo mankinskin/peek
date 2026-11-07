@@ -1,6 +1,7 @@
 //! Compact terminal MCP server.
 //!
-//! Exposes a single `run` tool that executes a shell command and returns:
+//! Exposes `run`, `read_spill`, `poll_process`, and `send_input`.
+//! The `run` tool executes a shell command and returns:
 //!
 //! - **Short output** (≤ `inline_limit` bytes): returned directly in the MCP response.
 //! - **Long output** (> `inline_limit` bytes): truncated inline summary + a transient
@@ -131,6 +132,26 @@ pub struct SendInputInput {
 
 // ── Server ────────────────────────────────────────────────────────────────────
 
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+
+    #[test]
+    fn advertised_terminal_contracts_explain_spill_and_result_kinds() {
+        let tools = CompactTerminalServer::tool_router().list_all();
+        assert_eq!(tools.len(), 4);
+        let run = tools.iter().find(|tool| tool.name == "run").unwrap();
+        assert!(
+            run.description
+                .as_deref()
+                .unwrap()
+                .contains("inspect exit_code")
+        );
+        let spill = tools.iter().find(|tool| tool.name == "read_spill").unwrap();
+        assert!(spill.description.as_deref().unwrap().contains("NOT regex"));
+    }
+}
+
 #[derive(Clone)]
 pub struct CompactTerminalServer {
     spill_dir: PathBuf,
@@ -255,26 +276,7 @@ impl CompactTerminalServer {
 
 #[tool_router]
 impl CompactTerminalServer {
-    #[tool(description = "
-Run a shell command. Short outputs (≤ inline_limit bytes) are returned directly.
-Long outputs are summarised inline and stored in a transient file for targeted
-follow-up inspection using read_spill or peek.
-
-Use run() for all terminal commands instead of raw shell execution. This keeps
-token consumption bounded by preventing large outputs from flooding the context.
-
-For interactive processes, if the process falls silent (no new stdout/stderr)
-for stall_timeout_secs (default 20s), this returns kind: awaiting_input instead
-of hanging until timeout_secs. Non-interactive processes run until completion or
-timeout_secs. Check the `tail` field for a possible input prompt; use
-poll_process to keep waiting, or send_input (requires interactive: true) to
-respond.
-
-Follow-up pattern for spilled output:
-  1. Check stdout_preview / stderr_preview for quick diagnosis.
-  2. Use read_spill with start/end or grep to inspect targeted sections.
-  3. Only re-run the full command if the spill file is insufficient.
-")]
+    #[tool(description = "Execute command through sh -c. Combined stdout/stderr at most inline_limit bytes returns inline; otherwise spills to a retained file with stream previews (first inline_limit/2 characters each). Default inline_limit 4096; zero spills any output. Nonzero exit is not a tool error: inspect exit_code. Long-running commands may return a handle for poll_process/send_input; handles are process-local.\n\nUse run() for all terminal commands instead of raw shell execution. This keeps\ntoken consumption bounded by preventing large outputs from flooding the context.\n\nFor interactive processes, if the process falls silent (no new stdout/stderr)\nfor stall_timeout_secs (default 20s), this returns kind: awaiting_input instead\nof hanging until timeout_secs. Non-interactive processes run until completion or\ntimeout_secs. Check the `tail` field for a possible input prompt; use\npoll_process to keep waiting, or send_input (requires interactive: true) to\nrespond.\n\nFollow-up pattern for spilled output:\n  1. Check stdout_preview / stderr_preview for quick diagnosis.\n  2. Use read_spill with start/end or grep to inspect targeted sections.\n  3. Only re-run the full command if the spill file is insufficient.\n")]
     pub async fn run(
         &self,
         Parameters(input): Parameters<RunInput>,
@@ -282,18 +284,7 @@ Follow-up pattern for spilled output:
         self.run_tool(input).await
     }
 
-    #[tool(description = "
-Read a bounded window from a transient spill file returned by run().
-
-Use this instead of re-running the full command when you need to inspect
-specific sections of long output. Prefer grep for pattern search and
-start/end for targeted slices.
-
-Patterns:
-  - grep: 'error'       → returns matching line numbers
-  - start: 1, end: 30  → first 30 lines
-  - start: 100, end: 130 → specific slice
-")]
+    #[tool(description = "Read a spill path as supplied, not restricted to the spill directory. start/end are 1-based inclusive (end default start+80, clamped); end must be >= start. grep is a case-sensitive literal substring, NOT regex: ignores start/end and returns matching line numbers only. Numbers include stdout/stderr header lines.")]
     pub async fn read_spill(
         &self,
         Parameters(input): Parameters<ReadSpillInput>,
@@ -301,17 +292,7 @@ Patterns:
         self.read_spill_tool(input).await
     }
 
-    #[tool(description = "
-Keep waiting on (or re-check) a process previously started by run(), identified
-by the handle_id from its result.
-
-Use this after a run() call returns kind: awaiting_input or kind: running to
-continue watching a long-lived or possibly-stuck process without re-running it.
-Returns the same result shapes as run(): inline/spilled once it completes,
-awaiting_input if it stalls again, running if it's still busy after wait_secs,
-or timed_out once the process's total timeout is finally exceeded (it is
-killed at that point).
-")]
+    #[tool(description = "Poll a process-local handle returned by run. Unknown/finished handles return success-shaped kind=process_not_found; inspect kind, running state and exit_code rather than assuming completion.")]
     pub async fn poll_process(
         &self,
         Parameters(input): Parameters<PollProcessInput>,
@@ -319,15 +300,7 @@ killed at that point).
         self.poll_process_tool(input).await
     }
 
-    #[tool(description = "
-Write input to a running process's stdin, identified by the handle_id from a
-previous run() result.
-
-Only works for processes started with interactive: true — otherwise stdin was
-already closed at spawn time and this returns a launch_error explaining that.
-Useful after run() (or poll_process) reports kind: awaiting_input, to respond
-to an interactive prompt instead of letting the process time out.
-")]
+    #[tool(description = "Send input to a process-local running handle; append_newline defaults true and appends only when absent. Unknown handles return kind=process_not_found, write failures kind=launch_error, successful writes kind=input_sent. This sends terminal input, unlike Session observer tools.")]
     pub async fn send_input(
         &self,
         Parameters(input): Parameters<SendInputInput>,
