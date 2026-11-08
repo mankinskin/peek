@@ -7,3 +7,12 @@
 **/.test/**/executions/
 **/.workflow-tools/test/**/executions/
 scan_fingerprints.json
+
+# Transient store controls; keep Cargo.lock and durable inspection records trackable.
+.*.lock
+*.flock
+.*-lock
+*.tmp
+.*.tmp-*
+.tmp-*
+move-locks/
